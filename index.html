@@ -3,86 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flashover Warning Signs</title>
+    <title>GLB Optimizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Dependencies: glTF-Transform Core and Functions -->
+    <script src="https://unpkg.com/@gltf-transform/core@3.10.1/dist/core.umd.js"></script>
+    <script src="https://unpkg.com/@gltf-transform/functions@3.10.1/dist/functions.umd.js"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a1a;
-            color: #f4f4f4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .container {
-            background-color: #2d2d2d;
-            border-left: 8px solid #e63946;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            max-width: 500px;
-            width: 90%;
-        }
-        h1 {
-            color: #e63946;
-            margin-top: 0;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            border-bottom: 1px solid #444;
-            padding-bottom: 10px;
-        }
-        p {
-            line-height: 1.6;
-            color: #ccc;
-        }
-        ul {
-            list-style: none;
-            padding: 0;
-        }
-        li {
-            background: #3d3d3d;
-            margin: 10px 0;
-            padding: 15px;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            transition: transform 0.2s;
-        }
-        li:hover {
-            transform: scale(1.02);
-            background: #4a4a4a;
-        }
-        li::before {
-            content: "⚠️";
-            margin-right: 15px;
-            font-size: 1.2rem;
-        }
-        .emergency {
-            margin-top: 20px;
-            font-weight: bold;
-            color: #ffb703;
-            text-align: center;
-            font-size: 0.9rem;
-        }
+        .drop-zone--over { border-color: #3b82f6; background-color: #eff6ff; }
+        #loader { display: none; border-top-color: #3b82f6; }
     </style>
 </head>
-<body>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased">
 
-<div class="container">
-    <h1>Flashover Alerts</h1>
-    <p>Watch for these critical indicators in a structural fire environment:</p>
-    
-    <ul>
-        <li><strong>Rollover:</strong> Isolated flames licking through the smoke layer (Ghosting).</li>
-        <li><strong>High Heat:</strong> Intense radiant heat forcing you down to the floor.</li>
-        <li><strong>Black Fire:</strong> Thick, turbulent, dark smoke that carries high energy.</li>
-        <li><strong>Lowering Neutral Plane:</strong> The smoke layer rapidly descending toward the floor.</li>
-        <li><strong>Sudden Temperature Rise:</strong> A rapid, uncontrolled increase in thermal layering.</li>
-    </ul>
+    <div class="max-w-3xl mx-auto py-12 px-4">
+        <header class="mb-10 text-center">
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900">GLB Model Optimizer</h1>
+            <p class="mt-2 text-gray-600">Reduce file size using Draco compression and texture resizing.</p>
+        </header>
 
-    <p class="emergency">IMMEDIATE ACTION REQUIRED: VENT OR EXIT</p>
-</div>
+        <main class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <!-- Drop Zone -->
+            <div id="dropZone" class="p-12 border-2 border-dashed border-gray-300 m-6 rounded-lg text-center cursor-pointer transition-colors hover:border-blue-400">
+                <div class="space-y-4">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <div class="text-lg font-medium text-gray-700">Click or drag GLB file here</div>
+                    <p class="text-sm text-gray-500">Only .glb files supported</p>
+                </div>
+                <input type="file" id="fileInput" class="hidden" accept=".glb">
+            </div>
 
+            <!-- Configuration -->
+            <div class="px-8 pb-8 space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Max Texture Size</label>
+                        <select id="texSize" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="512">512px</option>
+                            <option value="1024" selected>1024px</option>
+                            <option value="2048">2048px</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Draco Compression</label>
+                        <div class="flex items-center mt-2">
+                            <input type="checkbox" id="useDraco" checked class="h-4 w-4 text-blue-600 rounded">
+                            <span class="ml-2 text-sm text-gray-600">Enabled (Highly Recommended)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="processBtn" disabled class="w-full py-3 px-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                    Optimize Model
+                </button>
+            </div>
+        </main>
+
+        <!-- Status / Results -->
+        <div id="statusArea" class="mt-8 hidden">
+            <div class="flex items-center justify-center p-4 rounded-lg bg-white border border-gray-200">
+                <div id="loader" class="animate-spin rounded-full h-6 w-6 border-b-2 mr-3"></div>
+                <p id="statusMsg" class="text-sm font-medium text-gray-700">Processing...</p>
+            </div>
+            <div id="resultStats" class="mt-4 grid grid-cols-2 gap-4 hidden">
+                <div class="p-4 bg-gray-100 rounded-lg text-center">
+                    <p class="text-xs text-gray-500 uppercase font-bold">Original</p>
+                    <p id="origSize" class="text-lg font-mono">-</p>
+                </div>
+                <div class="p-4 bg-blue-50 rounded-lg text-center">
+                    <p class="text-xs text-blue-500 uppercase font-bold">Optimized</p>
+                    <p id="optSize" class="text-lg font-mono">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { WebIO } = gltfTransformCore;
+        const { draco, prune, dedup, textureResize } = gltfTransformFunctions;
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+        const statusArea = document.getElementById('statusArea');
+        const resultStats = document.getElementById('resultStats');
+        const loader = document.getElementById('loader');
+        
+        let selectedFile = null;
+
+        // File Selection Handlers
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
+        
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('drop-zone--over'); };
+        dropZone.ondragleave = () => dropZone.classList.remove('drop-zone--over');
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone--over');
+            handleFile(e.dataTransfer.files[0]);
+        };
+
+        function handleFile(file) {
+            if (!file || !file.name.endsWith('.glb')) return;
+            selectedFile = file;
+            processBtn.disabled = false;
+            document.getElementById('origSize').innerText = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+            document.querySelector('#dropZone .text-lg').innerText = file.name;
+        }
+
+        processBtn.onclick = async () => {
+            statusArea.classList.remove('hidden');
+            resultStats.classList.add('hidden');
+            loader.style.display = 'block';
+            processBtn.disabled = true;
+
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const io = new WebIO();
+                const doc = await io.readBinary(new Uint8Array(arrayBuffer));
+
+                // Transformation Pipeline
+                const transforms = [
+                    dedup(),
+                    prune(),
+                    textureResize({ size: [parseInt(texSize.value), parseInt(texSize.value)] })
+                ];
+
+                if (document.getElementById('useDraco').checked) {
+                    // Note: In a production environment, Draco requires the WASM encoder/decoder 
+                    // usually provided via draco3dgltf. 
+                    transforms.push(draco());
+                }
+
+                await doc.transform(...transforms);
+                
+                const outputBuffer = await io.writeBinary(doc);
+                const blob = new Blob([outputBuffer], { type: 'model/gltf-binary' });
+                
+                // Update UI
+                document.getElementById('optSize').innerText = (blob.size / 1024 / 1024).toFixed(2) + ' MB';
+                resultStats.classList.remove('hidden');
+                loader.style.display = 'none';
+                document.getElementById('statusMsg').innerText = 'Optimization Complete';
+
+                // Download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `optimized_${selectedFile.name}`;
+                a.click();
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('statusMsg').innerText = 'Error: ' + err.message;
+                loader.style.display = 'none';
+            } finally {
+                processBtn.disabled = false;
+            }
+        };
+    </script>
 </body>
 </html>
